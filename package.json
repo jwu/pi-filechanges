@@ -22,21 +22,42 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test \"tests/*.test.ts\"",
-    "release": "semantic-release"
+    "test": "bun test",
+    "format": "prettier --write '**/*.ts'",
+    "format:check": "prettier --check '**/*.ts'",
+    "prepare": "[ -d .git ] && simple-git-hooks || true",
+    "release": "GH_TOKEN=$(gh auth token) semantic-release --no-ci",
+    "release:dry": "GH_TOKEN=$(gh auth token) semantic-release --no-ci --dry-run"
   },
   "publishConfig": {
     "access": "public"
   },
   "release": {
+    "repositoryUrl": "https://github.com/johnnywu/pi-filechanges.git",
     "branches": ["main"],
     "plugins": [
       "@semantic-release/commit-analyzer",
       "@semantic-release/release-notes-generator",
-      "@semantic-release/changelog",
+      [
+        "@semantic-release/changelog",
+        {
+          "changelogFile": "CHANGELOG.md"
+        }
+      ],
       "@semantic-release/npm",
-      "@semantic-release/git"
+      "@semantic-release/github",
+      [
+        "@semantic-release/git",
+        {
+          "assets": ["package.json", "CHANGELOG.md"],
+          "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+        }
+      ]
     ]
+  },
+  "simple-git-hooks": {
+    "pre-commit": "bun prettier --check '**/*.ts' && bun test",
+    "commit-msg": "bun commitlint --edit \"$1\""
   },
   "dependencies": {
     "diff": "^5.2.0"
@@ -51,8 +72,16 @@
     ]
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.5.3",
+    "@commitlint/config-conventional": "^20.5.3",
     "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/git": "^10.0.1",
-    "semantic-release": "^25.0.3"
+    "@semantic-release/github": "^12.0.6",
+    "@semantic-release/npm": "^13.1.5",
+    "@semantic-release/release-notes-generator": "^14.1.0",
+    "prettier": "^3.8.3",
+    "semantic-release": "^25.0.3",
+    "simple-git-hooks": "^2.13.1"
   }
 }
