@@ -2,6 +2,8 @@
 
 Tracks files changed (modified/created) by **pi** via the built-in `edit` and `write` tools.
 
+> Highly inspired by [amosblomqvist/pi-config/extensions/filechanges](https://github.com/amosblomqvist/pi-config/tree/main/extensions/filechanges)
+
 ## Features
 
 - Persistent log (stored in session as custom entries)
@@ -30,11 +32,11 @@ If `ctx.hasUI` is false (print/json mode), accept/decline require explicit confi
 
 ```bash
 # Run tests
-npm test
+bun test
 
 # Release (local, no CI)
 # Requires GH_TOKEN and NPM_TOKEN environment variables
-npm run release -- --no-ci
+bun run release
 ```
 
 This project uses [semantic-release](https://semantic-release.gitbook.io) with
