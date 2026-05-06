@@ -16,7 +16,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/johnnywu/pi-filechanges.git"
+    "url": "git+https://github.com/jwu/pi-filechanges.git"
   },
   "engines": {
     "node": ">=18"
@@ -33,7 +33,7 @@
     "access": "public"
   },
   "release": {
-    "repositoryUrl": "https://github.com/johnnywu/pi-filechanges.git",
+    "repositoryUrl": "https://github.com/jwu/pi-filechanges.git",
     "branches": ["main"],
     "plugins": [
       "@semantic-release/commit-analyzer",
