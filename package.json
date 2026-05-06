@@ -22,7 +22,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test \"extensions/__tests__/*.test.ts\"",
+    "test": "node --experimental-strip-types --test \"tests/*.test.ts\"",
     "release": "semantic-release"
   },
   "publishConfig": {

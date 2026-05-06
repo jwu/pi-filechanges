@@ -17,7 +17,7 @@ import {
 	formatDiffMarkdown,
 	type TrackedFile,
 	type ThemeLike,
-} from "../utils.ts";
+} from "../extensions/utils.ts";
 
 // ---------------------------------------------------------------------------
 // Helpers
