@@ -7,7 +7,7 @@ Highly inspired by [amosblomqvist/pi-config/extensions/filechanges](https://gith
 ## Install
 
 ```bash
-pi install npm:pi-filechanges
+pi install npm:@johnnywu/pi-filechanges
 ```
 
 ## Commands
