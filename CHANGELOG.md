@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/jwu/pi-filechanges/compare/v1.0.1...v1.0.2) (2026-05-07)
+
+
+### Bug Fixes
+
+* always use cwd-relative path in normalizeToolPath ([4c4e2da](https://github.com/jwu/pi-filechanges/commit/4c4e2da4cfdce31364811da9e2777f0aad76bf4b))
+
 ## [1.0.1](https://github.com/jwu/pi-filechanges/compare/v1.0.0...v1.0.1) (2026-05-07)
 
 

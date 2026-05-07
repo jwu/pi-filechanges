@@ -1,6 +1,6 @@
 {
   "name": "@johnnywu/pi-filechanges",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Tracks files changed by pi via edit and write tools, with diff inspection and revert support",
   "type": "module",
   "keywords": [
