@@ -107,10 +107,16 @@ describe('normalizeToolPath', () => {
     assert.equal(r.relPath, 'lib/util.js');
   });
 
-  it('escapes cwd — keeps original cleaned input', () => {
+  it('escapes cwd — returns relative path with .. prefixes', () => {
     const r = normalizeToolPath(cwd, '../../etc/passwd');
     assert.equal(r.absPath, '/home/etc/passwd');
     assert.equal(r.relPath, '../../etc/passwd');
+  });
+
+  it('escapes cwd with absolute input — returns relative path with ..', () => {
+    const r = normalizeToolPath(cwd, '/etc/hosts');
+    assert.equal(r.absPath, '/etc/hosts');
+    assert.equal(r.relPath, '../../../etc/hosts');
   });
 
   it("resolves cwd itself to keep '.'", () => {

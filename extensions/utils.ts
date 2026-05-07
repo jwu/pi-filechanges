@@ -47,9 +47,8 @@ export function normalizeToolPath(cwd: string, raw: string): { absPath: string; 
   const cleaned = stripAtPrefix(raw);
   const absPath = resolve(cwd, cleaned);
   const rel = relative(cwd, absPath);
-  // Use relative path for storage/UI when possible.
-  // If it escapes cwd, keep the cleaned input.
-  const relPath = rel && !rel.startsWith('..') && rel !== '' ? rel : cleaned;
+  // Always use cwd-relative path for storage/UI.
+  const relPath = rel || '.';
   return { absPath, relPath };
 }
 
