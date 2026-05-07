@@ -1,32 +1,24 @@
-# filechanges (pi extension)
+# pi-filechanges
 
-Tracks files changed (modified/created) by **pi** via the built-in `edit` and `write` tools.
+Tracks files changed by [pi](https://github.com/badlogic/pi-mono) via the built-in `edit` and `write` tools. Persistent log, diff inspection, and accept/decline support.
 
-> Highly inspired by [amosblomqvist/pi-config/extensions/filechanges](https://github.com/amosblomqvist/pi-config/tree/main/extensions/filechanges)
+Highly inspired by [amosblomqvist/pi-config/extensions/filechanges](https://github.com/amosblomqvist/pi-config/tree/main/extensions/filechanges).
 
-## Features
+## Install
 
-- Persistent log (stored in session as custom entries)
-- Status line + widget listing changed files
-- `/filechanges` overlay to inspect diffs
-- `/filechanges-accept` to clear the log (keep files)
-- `/filechanges-decline` to revert logged changes (restore original contents / delete created files)
+```bash
+pi install npm:pi-filechanges
+```
 
-## Usage
+## Commands
 
-1. Reload pi: `/reload`
-2. Make changes through pi (using `edit`/`write`)
-3. Run:
-   - `/filechanges` to inspect
-   - `/filechanges-accept` to accept (clear log)
-   - `/filechanges-decline` to decline (revert)
-
-### Non-interactive usage
-
-If `ctx.hasUI` is false (print/json mode), accept/decline require explicit confirmation:
-
-- `/filechanges-accept force`
-- `/filechanges-decline force`
+| Command | Effect |
+|---------|--------|
+| `/filechanges` | Inspect diffs for all tracked files |
+| `/filechanges-accept` | Accept all changes (keep files, clear log) |
+| `/filechanges-accept force` | Accept without interactive confirmation |
+| `/filechanges-decline` | Decline all changes (revert files, clear log) |
+| `/filechanges-decline force` | Decline without interactive confirmation |
 
 ## Development
 
@@ -34,15 +26,12 @@ If `ctx.hasUI` is false (print/json mode), accept/decline require explicit confi
 # Run tests
 bun test
 
-# Release (local, no CI)
-# Requires GH_TOKEN and NPM_TOKEN environment variables
+# Release (local, requires GH_TOKEN and NPM_TOKEN)
 bun run release
 ```
 
-This project uses [semantic-release](https://semantic-release.gitbook.io) with
-[conventional commits](https://www.conventionalcommits.org/).
+This project uses [semantic-release](https://semantic-release.gitbook.io) with [conventional commits](https://www.conventionalcommits.org/).
 
-## Notes
+## License
 
-- Only tracks changes performed through `edit` and `write` tools.
-- To support “decline”, the extension stores the original file contents (before the first pi change) in the session file as a custom entry.
+MIT
