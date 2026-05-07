@@ -16,7 +16,7 @@ import {
   splitArgs,
   ensureParentDir,
   styleAddedRemovedForList,
-  formatStatus,
+  // DISABLE: formatStatus,
   buildWidgetLines,
   buildSelectItems,
   formatDiffMarkdown,
@@ -46,14 +46,14 @@ export default function (pi: ExtensionAPI) {
   // Per-tool-call snapshot, only committed on successful tool_result
   const pendingByToolCallId = new Map<string, PendingSnapshot>();
 
-  function updateUi(ctx: any) {
-    if (!ctx?.hasUI) return;
+  function updateUi(_ctx?: any) {
+    if (!_ctx?.hasUI) return;
 
-    ctx.ui.setStatus('filechanges', formatStatus(tracked, ctx.ui.theme));
-    ctx.ui.setWidget('filechanges', buildWidgetLines(tracked, ctx.ui.theme));
+    // DISABLE: _ctx.ui.setStatus('filechanges', formatStatus(tracked, _ctx.ui.theme));
+    _ctx.ui.setWidget('filechanges', buildWidgetLines(tracked, _ctx.ui.theme));
   }
 
-  async function recomputeTrackedFile(ctx: any, relPath: string) {
+  async function recomputeTrackedFile(relPath: string) {
     const baseline = baselines.get(relPath);
     if (!baseline) return;
 
@@ -126,12 +126,12 @@ export default function (pi: ExtensionAPI) {
     });
   }
 
-  async function clearLog(ctx: ExtensionCommandContext, reason: 'accept' | 'decline') {
+  async function clearLog(reason: 'accept' | 'decline') {
     baselines.clear();
     tracked.clear();
     pendingByToolCallId.clear();
     pi.appendEntry(ENTRY_CLEAR, { timestamp: Date.now(), reason });
-    updateUi(ctx);
+    updateUi();
   }
 
   async function declineAll(ctx: ExtensionCommandContext, args: string[] = []) {
@@ -172,11 +172,11 @@ export default function (pi: ExtensionAPI) {
       }
     }
 
-    await clearLog(ctx, 'decline');
+    await clearLog('decline');
 
     if (ctx.hasUI) {
       if (errors.length === 0) {
-        ctx.ui.notify(`filechanges: declined changes for ${reverted} file(s).`, 'success');
+        ctx.ui.notify(`filechanges: declined changes for ${reverted} file(s).`, 'info');
       } else {
         ctx.ui.notify(
           `filechanges: declined with ${errors.length} error(s). Run /filechanges to inspect; see console for details.`,
@@ -207,8 +207,8 @@ export default function (pi: ExtensionAPI) {
     }
 
     const count = tracked.size;
-    await clearLog(ctx, 'accept');
-    if (ctx.hasUI) ctx.ui.notify(`filechanges: accepted changes for ${count} file(s).`, 'success');
+    await clearLog('accept');
+    if (ctx.hasUI) ctx.ui.notify(`filechanges: accepted changes for ${count} file(s).`, 'info');
   }
 
   // Commands
@@ -378,7 +378,7 @@ export default function (pi: ExtensionAPI) {
 
     // Compute current diffs
     for (const relPath of baselines.keys()) {
-      await recomputeTrackedFile(ctx, relPath);
+      await recomputeTrackedFile(relPath);
     }
 
     updateUi(ctx);
@@ -389,15 +389,11 @@ export default function (pi: ExtensionAPI) {
     await rebuildFromSession(ctx);
   });
 
-  pi.on('session_switch', async (_event, ctx) => {
-    await rebuildFromSession(ctx);
-  });
-
   pi.on('session_tree', async (_event, ctx) => {
     await rebuildFromSession(ctx);
   });
 
-  pi.on('session_fork', async (_event, ctx) => {
+  pi.on('session_before_fork', async (_event, ctx) => {
     await rebuildFromSession(ctx);
   });
 
@@ -439,7 +435,7 @@ export default function (pi: ExtensionAPI) {
     }
 
     // Recompute cumulative diff against baseline
-    await recomputeTrackedFile(ctx, pending.path);
+    await recomputeTrackedFile(pending.path);
 
     // If file is back to baseline, untrack + persist
     const baseline = baselines.get(pending.path);

@@ -2,6 +2,9 @@
 # Only ignore runtime cache
 .pi/
 
+# tsconfig for editor LSP (machine-specific paths)
+tsconfig.json
+
 # Node/JS local dependencies & cache
 node_modules/
 package-lock.json
