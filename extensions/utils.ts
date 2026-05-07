@@ -1,6 +1,5 @@
 import { createTwoFilesPatch } from 'diff';
-import { dirname, relative, resolve } from 'node:path';
-import { mkdir } from 'node:fs/promises';
+import { relative, resolve } from 'node:path';
 
 // --- Types ---
 
@@ -17,7 +16,6 @@ export type TrackedFile = {
   displayPath: string;
   originalContent: string | null;
   currentContent: string;
-  diff: string;
   added: number;
   removed: number;
   kind: 'new' | 'edited';
@@ -77,6 +75,9 @@ export function formatAddedRemovedPlain(added: number, removed: number): string 
 /**
  * Generate a unified diff patch between baseline and current content.
  * Pass null for original to indicate a new file.
+ *
+ * The patch is used only for computing aggregate added/removed counts;
+ * the extension no longer exposes diff inspection UI.
  */
 export function patchFromBaseline(
   displayPath: string,
@@ -99,39 +100,31 @@ export function splitArgs(args: string | undefined): string[] {
     .filter(Boolean);
 }
 
-/**
- * Ensure the parent directory exists for a given file path.
- */
-export async function ensureParentDir(absPath: string): Promise<void> {
-  await mkdir(dirname(absPath), { recursive: true });
-}
-
 // --- Theme-dependent formatting (accept a lightweight theme interface) ---
 
 export interface ThemeLike {
   fg(color: string, text: string): string;
 }
 
-/**
- * Style "+x/-y" descriptions in select-list rows.
- * Matched patterns get colored success/error highlighting;
- * non-matching text is rendered as muted.
- */
-export function styleAddedRemovedForList(theme: ThemeLike, text: string): string {
-  const m = text.match(/^\+(\d+)\/\-(\d+)$/);
-  if (!m) return theme.fg('muted', text);
+function compareAsciiLowercaseFirst(a: string, b: string): number {
+  const rank = (char: string): number => {
+    if (char >= 'a' && char <= 'z') return char.charCodeAt(0) - 97;
+    if (char >= 'A' && char <= 'Z') return char.charCodeAt(0) - 65 + 26;
+    return char.charCodeAt(0) + 52;
+  };
 
-  const added = Number(m[1]);
-  const removed = Number(m[2]);
+  const length = Math.min(a.length, b.length);
+  for (let i = 0; i < length; i++) {
+    const ar = rank(a[i]);
+    const br = rank(b[i]);
+    if (ar !== br) return ar - br;
+  }
 
-  const plus = added === 0 ? theme.fg('text', `+${added}`) : theme.fg('success', `+${added}`);
-  const minus = removed === 0 ? theme.fg('text', `-${removed}`) : theme.fg('error', `-${removed}`);
-
-  return plus + theme.fg('text', '/') + minus;
+  return a.length - b.length;
 }
 
 /**
- * Build a short status string for the footer bar.
+ * Build a short status string for the footer/status area.
  * Returns undefined when there are no tracked files.
  */
 export function formatStatus(
@@ -139,16 +132,16 @@ export function formatStatus(
   theme?: ThemeLike,
 ): string | undefined {
   if (tracked.size === 0) return undefined;
+
   let edited = 0;
   let created = 0;
   for (const t of tracked.values()) {
     if (t.kind === 'new') created++;
     else edited++;
   }
-  if (!theme) {
-    return `Δ ${edited}  + ${created}`;
-  }
-  return theme.fg('muted', `Δ ${edited}  + ${created}`);
+
+  const status = `Δ${edited}  +${created}`;
+  return theme ? theme.fg('muted', status) : status;
 }
 
 /**
@@ -163,7 +156,9 @@ export function buildWidgetLines(
 ): string[] | undefined {
   if (tracked.size === 0) return undefined;
   const max = maxLines ?? 8;
-  const items = [...tracked.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+  const items = [...tracked.values()].sort((a, b) =>
+    compareAsciiLowercaseFirst(a.displayPath, b.displayPath),
+  );
   const lines: string[] = [];
 
   for (const t of items.slice(0, max)) {
@@ -190,65 +185,4 @@ export function buildWidgetLines(
     lines.push(theme ? theme.fg('dim', `…and ${rest} more`) : `…and ${rest} more`);
   }
   return lines;
-}
-
-// --- UI construction helpers (used by the command handler) ---
-
-export interface SelectListItem {
-  value: string;
-  label: string;
-  description: string;
-}
-
-/**
- * Build the label for a single tracked file in the select list.
- */
-export function buildTrackedFileLabel(t: TrackedFile): string {
-  return `${t.kind === 'new' ? '+' : 'Δ'} ${t.displayPath}`;
-}
-
-/**
- * Build the description for a single tracked file (added/removed counts).
- */
-export function buildTrackedFileDescription(t: TrackedFile): string {
-  return `+${t.added}/-${t.removed}`;
-}
-
-/**
- * Build the SelectList items for the "filechanges" command overlay.
- * Sorted by updatedAt descending.
- */
-export function buildSelectItems(tracked: Map<string, TrackedFile>): SelectListItem[] {
-  const items = [...tracked.values()].sort((a, b) => b.updatedAt - a.updatedAt);
-
-  return [
-    {
-      value: '__accept__',
-      label: 'Accept changes (clear log)',
-      description: 'Keep current files',
-    },
-    {
-      value: '__decline__',
-      label: 'Undo changes (revert)',
-      description: 'Restore original contents',
-    },
-    {
-      value: '__sep__',
-      label: '────────',
-      description: '',
-    },
-    ...items.map((t) => ({
-      value: t.path,
-      label: buildTrackedFileLabel(t),
-      description: buildTrackedFileDescription(t),
-    })),
-  ];
-}
-
-/**
- * Wrap a unified diff string in a markdown code block for rendering.
- */
-export function formatDiffMarkdown(diff: string): string {
-  const body = diff.trimEnd() || '(no diff)';
-  return '```diff\n' + body + '\n```';
 }

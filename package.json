@@ -1,7 +1,7 @@
 {
   "name": "@johnnywu/pi-filechanges",
   "version": "1.0.2",
-  "description": "Tracks files changed by pi via edit and write tools, with diff inspection and revert support",
+  "description": "Tracks files changed by pi via edit and write tools, with a toggleable file changes widget",
   "type": "module",
   "keywords": [
     "pi-package"
@@ -69,8 +69,7 @@
     "diff": "^5.2.0"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*",
-    "@mariozechner/pi-tui": "*"
+    "@mariozechner/pi-coding-agent": "*"
   },
   "pi": {
     "extensions": [

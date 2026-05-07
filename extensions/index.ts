@@ -1,25 +1,18 @@
 import type { ExtensionAPI, ExtensionCommandContext } from '@mariozechner/pi-coding-agent';
 import {
-  DynamicBorder,
-  getMarkdownTheme,
   isEditToolResult,
   isToolCallEventType,
   isWriteToolResult,
 } from '@mariozechner/pi-coding-agent';
-import { Container, Key, Markdown, SelectList, Text, matchesKey } from '@mariozechner/pi-tui';
-import { readFile, writeFile, rm } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 
 import {
   normalizeToolPath,
   countDiffLines,
   patchFromBaseline,
   splitArgs,
-  ensureParentDir,
-  styleAddedRemovedForList,
-  // DISABLE: formatStatus,
+  formatStatus,
   buildWidgetLines,
-  buildSelectItems,
-  formatDiffMarkdown,
   type Baseline,
   type TrackedFile,
   type PendingSnapshot,
@@ -46,11 +39,16 @@ export default function (pi: ExtensionAPI) {
   // Per-tool-call snapshot, only committed on successful tool_result
   const pendingByToolCallId = new Map<string, PendingSnapshot>();
 
-  function updateUi(_ctx?: any) {
-    if (!_ctx?.hasUI) return;
+  // Widget is shown by default; `/filechanges` toggles it.
+  let showWidget = true;
 
-    // DISABLE: _ctx.ui.setStatus('filechanges', formatStatus(tracked, _ctx.ui.theme));
-    _ctx.ui.setWidget('filechanges', buildWidgetLines(tracked, _ctx.ui.theme));
+  function updateUi(ctx?: any) {
+    if (!ctx?.hasUI) return;
+    ctx.ui.setStatus('filechanges', formatStatus(tracked, ctx.ui.theme));
+    ctx.ui.setWidget(
+      'filechanges',
+      showWidget ? buildWidgetLines(tracked, ctx.ui.theme) : undefined,
+    );
   }
 
   async function recomputeTrackedFile(relPath: string) {
@@ -73,7 +71,6 @@ export default function (pi: ExtensionAPI) {
         displayPath,
         originalContent: null,
         currentContent: current,
-        diff,
         added,
         removed,
         kind: 'new',
@@ -94,7 +91,6 @@ export default function (pi: ExtensionAPI) {
         displayPath,
         originalContent: baseline.originalContent,
         currentContent: '',
-        diff,
         added,
         removed,
         kind: 'edited',
@@ -118,7 +114,6 @@ export default function (pi: ExtensionAPI) {
       displayPath,
       originalContent: baseline.originalContent,
       currentContent: current,
-      diff,
       added,
       removed,
       kind: 'edited',
@@ -126,215 +121,49 @@ export default function (pi: ExtensionAPI) {
     });
   }
 
-  async function clearLog(reason: 'accept' | 'decline') {
+  async function clearLog(ctx?: ExtensionCommandContext) {
     baselines.clear();
     tracked.clear();
     pendingByToolCallId.clear();
-    pi.appendEntry(ENTRY_CLEAR, { timestamp: Date.now(), reason });
-    updateUi();
+    pi.appendEntry(ENTRY_CLEAR, { timestamp: Date.now(), reason: 'clear' });
+    updateUi(ctx);
   }
 
-  async function declineAll(ctx: ExtensionCommandContext, args: string[] = []) {
-    await ctx.waitForIdle();
-
-    if (tracked.size === 0) {
-      if (ctx.hasUI) ctx.ui.notify('filechanges: nothing to decline.', 'info');
-      return;
-    }
-
-    const force = args.includes('force');
-    if (ctx.hasUI && !force) {
-      const ok = await ctx.ui.confirm(
-        'Decline pi changes?',
-        'This will revert ALL currently logged pi changes (overwrite files / delete created files).',
-      );
-      if (!ok) return;
-    } else if (!ctx.hasUI && !force) {
-      throw new Error('Decline requires confirmation. Run: /filechanges-decline force');
-    }
-
-    const items = [...tracked.values()].sort((a, b) => b.updatedAt - a.updatedAt);
-    let reverted = 0;
-    const errors: string[] = [];
-
-    for (const item of items) {
-      try {
-        if (item.originalContent === null) {
-          // created file
-          await rm(item.absPath, { force: true });
-        } else {
-          await ensureParentDir(item.absPath);
-          await writeFile(item.absPath, item.originalContent, 'utf-8');
-        }
-        reverted++;
-      } catch (e: any) {
-        errors.push(`${item.displayPath}: ${e?.message ?? String(e)}`);
-      }
-    }
-
-    await clearLog('decline');
-
-    if (ctx.hasUI) {
-      if (errors.length === 0) {
-        ctx.ui.notify(`filechanges: declined changes for ${reverted} file(s).`, 'info');
-      } else {
-        ctx.ui.notify(
-          `filechanges: declined with ${errors.length} error(s). Run /filechanges to inspect; see console for details.`,
-          'warning',
-        );
-        console.warn('[filechanges] decline errors:\n' + errors.join('\n'));
-      }
-    }
-  }
-
-  async function acceptAll(ctx: ExtensionCommandContext, args: string[] = []) {
-    await ctx.waitForIdle();
-
-    if (tracked.size === 0) {
-      if (ctx.hasUI) ctx.ui.notify('filechanges: nothing to accept.', 'info');
-      return;
-    }
-
-    const force = args.includes('force');
-    if (ctx.hasUI && !force) {
-      const ok = await ctx.ui.confirm(
-        'Accept pi changes?',
-        'This will keep current files as-is and clear the modification log.',
-      );
-      if (!ok) return;
-    } else if (!ctx.hasUI && !force) {
-      throw new Error('Accept requires confirmation. Run: /filechanges-accept force');
-    }
-
-    const count = tracked.size;
-    await clearLog('accept');
-    if (ctx.hasUI) ctx.ui.notify(`filechanges: accepted changes for ${count} file(s).`, 'info');
-  }
-
-  // Commands
   pi.registerCommand('filechanges', {
-    description: 'Show files changed by pi and inspect diffs',
-    handler: async (_args, ctx) => {
+    description: 'Toggle the tracked file changes widget. Usage: /filechanges [clear]',
+    getArgumentCompletions: (prefix) => {
+      const trimmed = prefix.trimStart();
+      if (trimmed.includes(' ')) return null;
+      if (!'clear'.startsWith(trimmed)) return null;
+      return [{ value: 'clear', label: 'clear', description: 'Clear the tracked changes log' }];
+    },
+    handler: async (args, ctx) => {
       await ctx.waitForIdle();
-      updateUi(ctx);
 
-      if (!ctx.hasUI) {
-        const items = [...tracked.values()].sort((a, b) => b.updatedAt - a.updatedAt);
-        if (items.length === 0) {
-          console.log('filechanges: no pi-made modifications recorded.');
-          return;
-        }
-        // Non-interactive: just print a summary to stdout
-        const lines = buildWidgetLines(tracked) ?? [];
-        console.log(lines.join('\n'));
+      const tokens = splitArgs(args);
+      if (tokens.length === 0) {
+        showWidget = !showWidget;
+        updateUi(ctx);
+
+        const message = showWidget ? 'file changes shown' : 'file changes hidden';
+        if (ctx.hasUI) ctx.ui.notify(message, 'info');
+        else console.log(message);
         return;
       }
 
-      // Interactive loop: ESC in diff view returns to the modification log.
-      while (true) {
-        await ctx.waitForIdle();
-        updateUi(ctx);
+      if (tokens[0] === 'clear') {
+        const count = tracked.size;
+        await clearLog(ctx);
 
-        const items = [...tracked.values()].sort((a, b) => b.updatedAt - a.updatedAt);
-        if (items.length === 0) {
-          ctx.ui.notify('filechanges: no pi-made modifications recorded.', 'info');
-          return;
-        }
-
-        const selectItems = buildSelectItems(tracked);
-
-        const picked = await ctx.ui.custom<string | null>(
-          (tui, theme, _kb, done) => {
-            const container = new Container();
-            container.addChild(new DynamicBorder((s: string) => theme.fg('accent', s)));
-            container.addChild(new Text(theme.fg('accent', theme.bold('File changes')), 1, 0));
-
-            const list = new SelectList(selectItems, Math.min(14, selectItems.length), {
-              selectedPrefix: (t) => theme.fg('accent', t),
-              selectedText: (t) => theme.fg('accent', t),
-              description: (t) => styleAddedRemovedForList(theme, t),
-              scrollInfo: (t) => theme.fg('dim', t),
-              noMatch: (t) => theme.fg('warning', t),
-            });
-
-            list.onSelect = (item) => {
-              if (item.value === '__sep__') return;
-              done(item.value);
-            };
-            list.onCancel = () => done(null);
-            container.addChild(list);
-
-            container.addChild(
-              new Text(theme.fg('dim', '↑↓ navigate • enter select • esc close'), 1, 0),
-            );
-            container.addChild(new DynamicBorder((s: string) => theme.fg('accent', s)));
-
-            return {
-              render: (w) => container.render(w),
-              invalidate: () => container.invalidate(),
-              handleInput: (data) => {
-                list.handleInput(data);
-                tui.requestRender();
-              },
-            };
-          },
-          { overlay: true },
-        );
-
-        if (!picked) return;
-        if (picked === '__accept__') {
-          await acceptAll(ctx, []);
-          return;
-        }
-        if (picked === '__decline__') {
-          await declineAll(ctx, []);
-          return;
-        }
-
-        const t = tracked.get(picked);
-        if (!t) {
-          ctx.ui.notify('filechanges: entry not found (maybe log was cleared).', 'warning');
-          continue;
-        }
-
-        const md = formatDiffMarkdown(t.diff);
-        await ctx.ui.custom<void>(
-          (tui, theme, _kb, done) => {
-            const container = new Container();
-            container.addChild(new DynamicBorder((s: string) => theme.fg('accent', s)));
-            container.addChild(new Text(theme.fg('accent', theme.bold(t.displayPath)), 1, 0));
-            container.addChild(new Markdown(md, 1, 0, getMarkdownTheme()));
-            container.addChild(new Text(theme.fg('dim', 'esc to go back'), 1, 0));
-            container.addChild(new DynamicBorder((s: string) => theme.fg('accent', s)));
-
-            return {
-              render: (w) => container.render(w),
-              invalidate: () => container.invalidate(),
-              handleInput: (data) => {
-                if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl('c'))) done();
-                else tui.requestRender();
-              },
-            };
-          },
-          { overlay: true },
-        );
-
-        // After closing diff, loop back to the modification log.
+        const message = `filechanges: cleared ${count} tracked file(s).`;
+        if (ctx.hasUI) ctx.ui.notify(message, 'info');
+        else console.log(message);
+        return;
       }
-    },
-  });
 
-  pi.registerCommand('filechanges-accept', {
-    description: 'Accept pi-made changes (keeps files, clears log)',
-    handler: async (args, ctx) => {
-      await acceptAll(ctx, splitArgs(args));
-    },
-  });
-
-  pi.registerCommand('filechanges-decline', {
-    description: 'Decline pi-made changes (reverts files, clears log)',
-    handler: async (args, ctx) => {
-      await declineAll(ctx, splitArgs(args));
+      const message = 'filechanges: usage: /filechanges [clear]';
+      if (ctx.hasUI) ctx.ui.notify(message, 'info');
+      else console.log(message);
     },
   });
 
@@ -376,7 +205,7 @@ export default function (pi: ExtensionAPI) {
       }
     }
 
-    // Compute current diffs
+    // Compute current change counts
     for (const relPath of baselines.keys()) {
       await recomputeTrackedFile(relPath);
     }
@@ -434,7 +263,7 @@ export default function (pi: ExtensionAPI) {
       });
     }
 
-    // Recompute cumulative diff against baseline
+    // Recompute cumulative change counts against baseline
     await recomputeTrackedFile(pending.path);
 
     // If file is back to baseline, untrack + persist
