@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/jwu/pi-filechanges/compare/v1.0.0...v1.0.1) (2026-05-07)
+
+
+### Bug Fixes
+
+* add missing dev dependencies and fix TS errors ([2074159](https://github.com/jwu/pi-filechanges/commit/207415928dadbf4bdd35afd5cc50f454af2ddd3c))
+
 # 1.0.0 (2026-05-06)
 
 
