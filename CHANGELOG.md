@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/jwu/pi-filechanges/compare/v1.0.2...v1.1.0) (2026-05-07)
+
+
+### Features
+
+* simplify filechanges widget ([b8cd25a](https://github.com/jwu/pi-filechanges/commit/b8cd25a68621fd44dcde339081932702f776eb10))
+
 ## [1.0.2](https://github.com/jwu/pi-filechanges/compare/v1.0.1...v1.0.2) (2026-05-07)
 
 
