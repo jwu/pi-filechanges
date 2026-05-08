@@ -138,8 +138,6 @@ export default function (pi: ExtensionAPI) {
       return [{ value: 'clear', label: 'clear', description: 'Clear the tracked changes log' }];
     },
     handler: async (args, ctx) => {
-      await ctx.waitForIdle();
-
       const tokens = splitArgs(args);
       if (tokens.length === 0) {
         showWidget = !showWidget;
