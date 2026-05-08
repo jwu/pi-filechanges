@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/jwu/pi-filechanges/compare/v1.1.0...v1.1.1) (2026-05-08)
+
+
+### Bug Fixes
+
+* remove unnecessary waitForIdle blocking /filechanges and /filechanges clear commands ([77dd334](https://github.com/jwu/pi-filechanges/commit/77dd33462ee2b8a9763e6f1770669d82bad31234))
+
 # [1.1.0](https://github.com/jwu/pi-filechanges/compare/v1.0.2...v1.1.0) (2026-05-07)
 
 
