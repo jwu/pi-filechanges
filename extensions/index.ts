@@ -3,6 +3,7 @@ import {
   isEditToolResult,
   isToolCallEventType,
   isWriteToolResult,
+  keyHint,
 } from '@mariozechner/pi-coding-agent';
 import { readFile } from 'node:fs/promises';
 
@@ -45,10 +46,26 @@ export default function (pi: ExtensionAPI) {
   function updateUi(ctx?: any) {
     if (!ctx?.hasUI) return;
     ctx.ui.setStatus('filechanges', formatStatus(tracked, ctx.ui.theme));
-    ctx.ui.setWidget(
-      'filechanges',
-      showWidget ? buildWidgetLines(tracked, ctx.ui.theme) : undefined,
-    );
+    if (!showWidget) {
+      ctx.ui.setWidget('filechanges', undefined);
+      return;
+    }
+    // Use a factory so render() reads the live tools-expanded state on every TUI redraw.
+    // When tools are expanded (ctrl+o), show all tracked files; otherwise cap at 8.
+    ctx.ui.setWidget('filechanges', (_tui: any, theme: any) => ({
+      render: () => {
+        const expanded = (ctx as any)?.ui?.getToolsExpanded?.() ?? false;
+        const maxLines = expanded ? 9999 : 8;
+        const lines = buildWidgetLines(tracked, theme, maxLines) ?? [];
+        if (!expanded && tracked.size > maxLines) {
+          const rest = tracked.size - maxLines;
+          const hint = keyHint('app.tools.expand', 'to expand');
+          lines[lines.length - 1] = theme.fg('dim', `... (${rest} more files, ${hint})`);
+        }
+        return lines;
+      },
+      invalidate: () => {},
+    }));
   }
 
   async function recomputeTrackedFile(relPath: string) {
