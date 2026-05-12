@@ -1,3 +1,10 @@
+## [1.2.2](https://github.com/jwu/pi-filechanges/compare/v1.2.1...v1.2.2) (2026-05-12)
+
+
+### Bug Fixes
+
+* truncate long file paths in widget to prevent TUI crash on narrow terminals ([4bd122d](https://github.com/jwu/pi-filechanges/commit/4bd122d451e424ef0e6f015e3e40a4cc139ef1e7))
+
 # [1.2.0](https://github.com/jwu/pi-filechanges/compare/v1.1.1...v1.2.0) (2026-05-12)
 
 
