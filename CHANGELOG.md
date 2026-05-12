@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/jwu/pi-filechanges/compare/v1.1.1...v1.2.0) (2026-05-12)
+
+
+### Features
+
+* share tools-expanded state with filechanges widget ([6a737b6](https://github.com/jwu/pi-filechanges/commit/6a737b6dffa6e1b0b4339ad6406c8e7d7c69f323))
+
 ## [1.1.1](https://github.com/jwu/pi-filechanges/compare/v1.1.0...v1.1.1) (2026-05-08)
 
 
