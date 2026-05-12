@@ -4,6 +4,18 @@ Tracks files changed by [pi](https://github.com/badlogic/pi-mono) via the built-
 
 Highly inspired by [amosblomqvist/pi-config/extensions/filechanges](https://github.com/amosblomqvist/pi-config/tree/main/extensions/filechanges).
 
+## Capabilities & Limitations
+
+### ✅ Can track
+
+- Files changed by the **current Agent** through the built-in `edit` and `write` tools
+
+### ❌ Cannot track
+
+- Files changed by the **user** outside of the Agent (e.g. manual edits in an editor, `git checkout`, scripts run in a separate terminal)
+- Files changed by **other tools or commands** (e.g. `bash` commands that write to files, custom tools that modify files directly)
+- Files changed by **sub-agents** — each sub-agent runs in its own session and this extension only monitors the current session's tool calls
+
 ## Install
 
 ```bash
