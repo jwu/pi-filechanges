@@ -1,10 +1,10 @@
-import type { ExtensionAPI, ExtensionCommandContext } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 import {
   isEditToolResult,
   isToolCallEventType,
   isWriteToolResult,
   keyHint,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 import { readFile } from 'node:fs/promises';
 
 import {
