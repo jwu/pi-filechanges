@@ -232,4 +232,107 @@ describe('buildWidgetLines', () => {
     assert.ok(lines?.[0].includes('[success]+3[/success]'));
     assert.ok(lines?.[0].includes('[error]-2[/error]'));
   });
+
+  // ---- truncation (maxWidth) without theme ----
+
+  it('shows full line when maxWidth is enough (no theme)', () => {
+    const m = trackedMap(
+      trackedFile({ displayPath: 'src/foo.ts', kind: 'new', added: 2, removed: 0 }),
+    );
+    const lines = buildWidgetLines(m, undefined, 8, 80);
+    assert.deepEqual(lines, ['+ src/foo.ts (+2/-0)']);
+  });
+
+  it('truncates path from left when maxWidth is tight (no theme)', () => {
+    const m = trackedMap(
+      trackedFile({
+        displayPath: 'very/long/path/to/file.ts',
+        kind: 'edited',
+        added: 1,
+        removed: 1,
+      }),
+    );
+    // Full: "Δ very/long/path/to/file.ts (+1/-1)" = 35 chars
+    const lines = buildWidgetLines(m, undefined, 8, 25);
+    const line = lines?.[0] ?? '';
+    assert.ok(line.startsWith('Δ ...'));
+    assert.ok(line.endsWith(' (+1/-1)'));
+    // Should keep the tail of the path after "..."
+    assert.ok(line.includes('file.ts'));
+    // Should NOT contain the full beginning
+    assert.ok(!line.includes('very/long'));
+  });
+
+  it('falls back to minimal form when terminal is extremely narrow (no theme)', () => {
+    const m = trackedMap(
+      trackedFile({ displayPath: 'src/foo.ts', kind: 'edited', added: 2, removed: 1 }),
+    );
+    // Full: "Δ src/foo.ts (+2/-1)" = 21 chars, minimal: "Δ ... (+2/-1)" = 14 chars
+    const lines = buildWidgetLines(m, undefined, 8, 10);
+    assert.deepEqual(lines, ['Δ ... (+2/-1)']);
+  });
+
+  // ---- truncation (maxWidth) with theme ----
+
+  it('shows full themed line when maxWidth is enough', () => {
+    const m = trackedMap(
+      trackedFile({ displayPath: 'src/foo.ts', kind: 'new', added: 5, removed: 0 }),
+    );
+    const lines = buildWidgetLines(m, mockTheme(), 8, 80);
+    const line = lines?.[0] ?? '';
+    // Themed: [muted]+ [/muted][muted]src/foo.ts [/muted][text]([/text][success]+5[/success][text]/[/text][text]+0[/text][text])[/text]
+    assert.ok(line.includes('[muted]src/foo.ts [/muted]'));
+    assert.ok(line.includes('[success]+5[/success]'));
+    assert.ok(line.includes('[text]-0[/text]'));
+  });
+
+  it('truncates path from left in themed output when maxWidth is tight', () => {
+    const m = trackedMap(
+      trackedFile({
+        displayPath: 'very/long/path/to/file.ts',
+        kind: 'edited',
+        added: 1,
+        removed: 1,
+      }),
+    );
+    const lines = buildWidgetLines(m, mockTheme(), 8, 30);
+    const line = lines?.[0] ?? '';
+    assert.ok(line.includes('...'));
+    assert.ok(line.includes('file.ts'));
+    assert.ok(!line.includes('very/long'));
+  });
+
+  it('truncates path with CJK characters correctly', () => {
+    const m = trackedMap(
+      trackedFile({
+        displayPath: '工作/日报/2026-05-12.md',
+        kind: 'edited',
+        added: 3,
+        removed: 1,
+      }),
+    );
+    // Full visible width: "Δ "(2) + CJK path (5*2 + 2 + 2*2 + 8 = 10+2+4+8=24) + " (+3/-1)"(9) = 35
+    const lines = buildWidgetLines(m, mockTheme(), 8, 28);
+    const line = lines?.[0] ?? '';
+    assert.ok(line.includes('...'));
+    // Should keep the filename tail
+    assert.ok(line.includes('2026-05-12.md'));
+    // Should NOT show the full prefix
+    assert.ok(!line.includes('工作/日报'));
+  });
+
+  it('falls back to minimal themed form on extremely narrow terminal', () => {
+    const m = trackedMap(
+      trackedFile({ displayPath: 'src/foo.ts', kind: 'edited', added: 2, removed: 1 }),
+    );
+    const lines = buildWidgetLines(m, mockTheme(), 8, 10);
+    const line = lines?.[0] ?? '';
+    // Minimal: [muted]Δ ... [/muted][text]([/text][success]+2[/success][text]/[/text][error]-1[/error][text])[/text]
+    assert.ok(line.includes('[muted]'));
+    assert.ok(line.includes('...'));
+    assert.ok(line.includes('[success]+2[/success]'));
+    assert.ok(line.includes('[error]-1[/error]'));
+    // Should NOT contain any path
+    assert.ok(!line.includes('src/foo.ts'));
+  });
 });

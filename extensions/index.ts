@@ -56,11 +56,18 @@ export default function (pi: ExtensionAPI) {
       render: () => {
         const expanded = (ctx as any)?.ui?.getToolsExpanded?.() ?? false;
         const maxLines = expanded ? 9999 : 8;
-        const lines = buildWidgetLines(tracked, theme, maxLines) ?? [];
+        const termWidth = _tui?.getWidth?.() ?? process.stdout.columns ?? 80;
+        const lines = buildWidgetLines(tracked, theme, maxLines, termWidth) ?? [];
         if (!expanded && tracked.size > maxLines) {
           const rest = tracked.size - maxLines;
           const hint = keyHint('app.tools.expand', 'to expand');
           lines[lines.length - 1] = theme.fg('dim', `... (${rest} more files, ${hint})`);
+        }
+        // Safety net: brute-force truncate any line that still exceeds terminal width
+        for (let i = 0; i < lines.length; i++) {
+          if (typeof _tui?.truncateToWidth === 'function') {
+            lines[i] = _tui.truncateToWidth(lines[i], termWidth);
+          }
         }
         return lines;
       },

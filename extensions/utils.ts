@@ -100,6 +100,35 @@ export function splitArgs(args: string | undefined): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Estimate the visible (monospace column) width of a string.
+ * Counts ASCII chars as 1, CJK / fullwidth / wide chars as 2.
+ */
+function visibleWidth(s: string): number {
+  let w = 0;
+  for (const ch of s) {
+    const cp = ch.codePointAt(0)!;
+    if (
+      (cp >= 0x1100 && cp <= 0x115f) || // Hangul Jamo
+      (cp >= 0x2e80 && cp <= 0xa4cf) || // CJK Radicals .. Yi
+      (cp >= 0xac00 && cp <= 0xd7a3) || // Hangul Syllables
+      (cp >= 0xf900 && cp <= 0xfaff) || // CJK Compatibility Ideographs
+      (cp >= 0xfe10 && cp <= 0xfe19) || // Vertical forms
+      (cp >= 0xfe30 && cp <= 0xfe6f) || // CJK Compatibility Forms
+      (cp >= 0xff01 && cp <= 0xff60) || // Fullwidth Forms
+      (cp >= 0xffe0 && cp <= 0xffe6) || // Fullwidth Signs
+      (cp >= 0x1f300 && cp <= 0x1f64f) || // Emoticons
+      (cp >= 0x1f900 && cp <= 0x1f9ff) || // Supplemental Symbols
+      (cp >= 0x20000 && cp <= 0x2ffff) // CJK Extension B ..
+    ) {
+      w += 2;
+    } else {
+      w += 1;
+    }
+  }
+  return w;
+}
+
 // --- Theme-dependent formatting (accept a lightweight theme interface) ---
 
 export interface ThemeLike {
@@ -147,12 +176,15 @@ export function formatStatus(
 /**
  * Build a list of lines for the widget area (rendered above the editor).
  * At most `maxLines` files are shown; the rest are summarized.
+ * When `maxWidth` is provided, display paths are truncated from the left
+ * (e.g. "Δ ...ny-work/01-daily-日记/2026-05-12.md (+48/-3)") to fit.
  * Returns undefined when there are no tracked files.
  */
 export function buildWidgetLines(
   tracked: Map<string, TrackedFile>,
   theme?: ThemeLike,
   maxLines?: number,
+  maxWidth?: number,
 ): string[] | undefined {
   if (tracked.size === 0) return undefined;
   const max = maxLines ?? 8;
@@ -163,13 +195,17 @@ export function buildWidgetLines(
 
   for (const t of items.slice(0, max)) {
     const tag = t.kind === 'new' ? '+' : 'Δ';
+    const countStr = formatAddedRemovedPlain(t.added, t.removed); // e.g. "(+48/-3)"
 
     if (!theme) {
-      lines.push(`${tag} ${t.displayPath} ${formatAddedRemovedPlain(t.added, t.removed)}`);
+      let line = `${tag} ${t.displayPath} ${countStr}`;
+      if (maxWidth && line.length > maxWidth) {
+        line = truncateLinePlain(tag, t.displayPath, countStr, maxWidth);
+      }
+      lines.push(line);
       continue;
     }
 
-    const prefix = theme.fg('muted', `${tag} `) + theme.fg('muted', `${t.displayPath} `);
     const plus =
       t.added === 0 ? theme.fg('text', `+${t.added}`) : theme.fg('success', `+${t.added}`);
     const minus =
@@ -177,6 +213,41 @@ export function buildWidgetLines(
     const counts =
       theme.fg('text', '(') + plus + theme.fg('text', '/') + minus + theme.fg('text', ')');
 
+    if (maxWidth) {
+      // Measure visible width of the non-path parts
+      const prefixVis = visibleWidth(`${tag} `);
+      const suffixVis = visibleWidth(` ${countStr}`);
+      const pathVis = visibleWidth(t.displayPath);
+      const totalVis = prefixVis + pathVis + suffixVis;
+
+      if (totalVis > maxWidth) {
+        const availPathVis = maxWidth - prefixVis - suffixVis - 3; // 3 for "..."
+        if (availPathVis > 0) {
+          // Truncate path from the left, preserving the rightmost chars
+          let kept = '';
+          let keptVis = 0;
+          for (let i = t.displayPath.length - 1; i >= 0 && keptVis < availPathVis; i--) {
+            kept = t.displayPath[i] + kept;
+            keptVis = visibleWidth(kept);
+          }
+          // Trim excess if we overshot
+          while (keptVis > availPathVis && kept.length > 0) {
+            kept = kept.slice(1);
+            keptVis = visibleWidth(kept);
+          }
+          const truncatedPath = '...' + kept;
+          lines.push(
+            theme.fg('muted', `${tag} `) + theme.fg('muted', truncatedPath + ' ') + counts,
+          );
+          continue;
+        }
+        // Terminal too narrow for path — show minimal: "Δ ... (+2/-1)"
+        lines.push(theme.fg('muted', `${tag} ... `) + counts);
+        continue;
+      }
+    }
+
+    const prefix = theme.fg('muted', `${tag} `) + theme.fg('muted', `${t.displayPath} `);
     lines.push(prefix + counts);
   }
 
@@ -185,4 +256,26 @@ export function buildWidgetLines(
     lines.push(theme ? theme.fg('dim', `…and ${rest} more`) : `…and ${rest} more`);
   }
   return lines;
+}
+
+/** Truncate a plain-text file-changes line by eliding the path from the left.
+ * Falls back to "Δ ... (+2/-1)" when even a truncated path won't fit. */
+function truncateLinePlain(
+  tag: string,
+  displayPath: string,
+  countStr: string,
+  maxWidth: number,
+): string {
+  const prefix = `${tag} `;
+  const suffix = ` ${countStr}`;
+  const prefixVis = visibleWidth(prefix);
+  const suffixVis = visibleWidth(suffix);
+  const avail = maxWidth - prefixVis - suffixVis - 3; // 3 for "..."
+  if (avail <= 0) return prefix + '...' + suffix;
+  // Truncate from left, preserving rightmost chars
+  let kept = displayPath;
+  while (visibleWidth(kept) > avail && kept.length > 0) {
+    kept = kept.slice(1);
+  }
+  return prefix + '...' + kept + suffix;
 }
