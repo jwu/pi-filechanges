@@ -1,5 +1,6 @@
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 import {
+  getAgentDir,
   isEditToolResult,
   isToolCallEventType,
   isWriteToolResult,
@@ -7,6 +8,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { readFile } from 'node:fs/promises';
 
+import { TOGGLE_KEY_OFF, resolveToggleKey } from './config.js';
 import {
   normalizeToolPath,
   countDiffLines,
@@ -14,6 +16,7 @@ import {
   splitArgs,
   formatStatus,
   buildWidgetLines,
+  buildHiddenHintLine,
   type Baseline,
   type TrackedFile,
   type PendingSnapshot,
@@ -43,11 +46,34 @@ export default function (pi: ExtensionAPI) {
   // Widget is shown by default; `/filechanges` toggles it.
   let showWidget = true;
 
+  // Toggle shortcut, resolved once at factory scope from
+  // <agent dir>/extensions/pi-filechanges.json; rebinding needs /reload. "off"
+  // registers no shortcut and drops the key from the hidden hint.
+  const toggleKey = resolveToggleKey(getAgentDir());
+
   function updateUi(ctx?: any) {
     if (!ctx?.hasUI) return;
     ctx.ui.setStatus('filechanges', formatStatus(tracked, ctx.ui.theme));
     if (!showWidget) {
-      ctx.ui.setWidget('filechanges', undefined);
+      // Keep a one-line hint in place of the widget so the collapse is
+      // discoverable — but only when there is something to expand into.
+      if (tracked.size === 0) {
+        ctx.ui.setWidget('filechanges', undefined);
+        return;
+      }
+      const hintKey = toggleKey === TOGGLE_KEY_OFF ? undefined : toggleKey;
+      ctx.ui.setWidget('filechanges', (_tui: any, theme: any) => ({
+        render: () => {
+          const line = buildHiddenHintLine(hintKey, theme);
+          const termWidth = _tui?.getWidth?.() ?? process.stdout.columns ?? 80;
+          return [
+            typeof _tui?.truncateToWidth === 'function'
+              ? _tui.truncateToWidth(line, termWidth)
+              : line,
+          ];
+        },
+        invalidate: () => {},
+      }));
       return;
     }
     // Use a factory so render() reads the live tools-expanded state on every TUI redraw.
@@ -73,6 +99,15 @@ export default function (pi: ExtensionAPI) {
       },
       invalidate: () => {},
     }));
+  }
+
+  function toggleWidget(ctx?: any) {
+    showWidget = !showWidget;
+    updateUi(ctx);
+
+    const message = showWidget ? 'file changes shown' : 'file changes hidden';
+    if (ctx?.hasUI) ctx.ui.notify(message, 'info');
+    else console.log(message);
   }
 
   async function recomputeTrackedFile(relPath: string) {
@@ -164,12 +199,7 @@ export default function (pi: ExtensionAPI) {
     handler: async (args, ctx) => {
       const tokens = splitArgs(args);
       if (tokens.length === 0) {
-        showWidget = !showWidget;
-        updateUi(ctx);
-
-        const message = showWidget ? 'file changes shown' : 'file changes hidden';
-        if (ctx.hasUI) ctx.ui.notify(message, 'info');
-        else console.log(message);
+        toggleWidget(ctx);
         return;
       }
 
@@ -188,6 +218,15 @@ export default function (pi: ExtensionAPI) {
       else console.log(message);
     },
   });
+
+  // Optional toggle shortcut. The key was resolved at factory scope above; the
+  // binding is skipped entirely when toggleKey is "off".
+  if (toggleKey !== TOGGLE_KEY_OFF) {
+    pi.registerShortcut(toggleKey as Parameters<ExtensionAPI['registerShortcut']>[0], {
+      description: 'Toggle the file changes widget',
+      handler: (ctx) => toggleWidget(ctx),
+    });
+  }
 
   async function rebuildFromSession(ctx: any): Promise<void> {
     baselines.clear();

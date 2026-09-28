@@ -10,6 +10,7 @@ import {
   splitArgs,
   formatStatus,
   buildWidgetLines,
+  buildHiddenHintLine,
   type TrackedFile,
   type ThemeLike,
 } from '../extensions/utils.ts';
@@ -170,6 +171,27 @@ describe('formatStatus', () => {
   it('uses muted theme color when provided', () => {
     const m = trackedMap(trackedFile({ kind: 'edited' }));
     assert.equal(formatStatus(m, mockTheme()), '[muted]Δ1  +0[/muted]');
+  });
+});
+
+describe('buildHiddenHintLine', () => {
+  it('splices the toggle key into the hint', () => {
+    assert.equal(buildHiddenHintLine('alt+f'), 'filechanges hidden · alt+f to expand');
+    assert.equal(
+      buildHiddenHintLine('ctrl+shift+t'),
+      'filechanges hidden · ctrl+shift+t to expand',
+    );
+  });
+
+  it('drops the key when no shortcut is registered', () => {
+    assert.equal(buildHiddenHintLine(undefined), 'filechanges hidden');
+  });
+
+  it('uses dim theme color when provided', () => {
+    assert.equal(
+      buildHiddenHintLine('alt+f', mockTheme()),
+      '[dim]filechanges hidden · alt+f to expand[/dim]',
+    );
   });
 });
 

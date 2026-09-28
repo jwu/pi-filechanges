@@ -174,6 +174,16 @@ export function formatStatus(
 }
 
 /**
+ * Build the single-line hint shown in place of the widget while it is hidden,
+ * so the collapsed state stays discoverable. `toggleKey` is the resolved
+ * shortcut spec, or undefined when no shortcut is registered ("off").
+ */
+export function buildHiddenHintLine(toggleKey?: string, theme?: ThemeLike): string {
+  const label = toggleKey ? `filechanges hidden · ${toggleKey} to expand` : 'filechanges hidden';
+  return theme ? theme.fg('dim', label) : label;
+}
+
+/**
  * Build a list of lines for the widget area (rendered above the editor).
  * At most `maxLines` files are shown; the rest are summarized.
  * When `maxWidth` is provided, display paths are truncated from the left
