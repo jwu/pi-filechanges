@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/jwu/pi-filechanges/compare/v1.2.2...v1.3.0) (2026-09-28)
+
+
+### Features
+
+* toggle the filechanges widget with a configurable shortcut ([ab32157](https://github.com/jwu/pi-filechanges/commit/ab32157b5d3d2a81314019236fc1bb8f7c9d9a0f))
+
 ## [1.2.2](https://github.com/jwu/pi-filechanges/compare/v1.2.1...v1.2.2) (2026-05-12)
 
 
