@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/jwu/pi-filechanges/compare/v1.3.0...v1.3.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **deps:** 对齐 pi 1.6.0 依赖范围 ([8cbf718](https://github.com/jwu/pi-filechanges/commit/8cbf718096ba8767eb80069b79bd7cd0a25e5821))
+
 # [1.3.0](https://github.com/jwu/pi-filechanges/compare/v1.2.2...v1.3.0) (2026-09-28)
 
 
