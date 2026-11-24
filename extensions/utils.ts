@@ -1,5 +1,6 @@
 import { createTwoFilesPatch } from 'diff';
-import { relative, resolve } from 'node:path';
+import { realpathSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 // --- Types ---
 
@@ -37,6 +38,27 @@ export function stripAtPrefix(p: string): string {
   return p.startsWith('@') ? p.slice(1) : p;
 }
 
+function isWithinCwd(relPath: string): boolean {
+  return relPath !== '..' && !relPath.startsWith(`..${sep}`) && !isAbsolute(relPath);
+}
+
+// A write can target a file whose parent directories do not exist yet.
+function resolveExistingAncestors(dirPath: string): string | undefined {
+  const missing: string[] = [];
+  let current = dirPath;
+  while (true) {
+    try {
+      return join(realpathSync.native(current), ...missing.reverse());
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return undefined;
+      const parent = dirname(current);
+      if (parent === current) return undefined;
+      missing.push(basename(current));
+      current = parent;
+    }
+  }
+}
+
 /**
  * Resolve a raw tool path (possibly "@"-prefixed) into absolute and
  * cwd-relative paths.
@@ -44,10 +66,17 @@ export function stripAtPrefix(p: string): string {
 export function normalizeToolPath(cwd: string, raw: string): { absPath: string; relPath: string } {
   const cleaned = stripAtPrefix(raw);
   const absPath = resolve(cwd, cleaned);
-  const rel = relative(cwd, absPath);
+  let relPath = relative(cwd, absPath);
+  if (!isWithinCwd(relPath)) {
+    const realCwd = resolveExistingAncestors(resolve(cwd));
+    const realParent = resolveExistingAncestors(dirname(absPath));
+    if (realCwd && realParent) {
+      const realRelativePath = relative(realCwd, join(realParent, basename(absPath)));
+      if (isWithinCwd(realRelativePath)) relPath = realRelativePath;
+    }
+  }
   // Always use cwd-relative path for storage/UI.
-  const relPath = rel || '.';
-  return { absPath, relPath };
+  return { absPath, relPath: relPath || '.' };
 }
 
 /**

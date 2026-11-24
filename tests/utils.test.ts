@@ -1,5 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, relative } from 'node:path';
 
 import {
   stripAtPrefix,
@@ -83,6 +86,61 @@ describe('normalizeToolPath', () => {
     const r = normalizeToolPath(cwd, '/etc/hosts');
     assert.equal(r.absPath, '/etc/hosts');
     assert.equal(r.relPath, '../../../etc/hosts');
+  });
+
+  it('recognizes the same cwd through a directory symlink, including new files and old entries', (t) => {
+    const root = mkdtempSync(join(realpathSync(tmpdir()), 'filechanges-'));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const realDev = join(root, 'disk', 'dev');
+    const linkedDev = join(root, 'dev');
+    const project = join(realDev, 'project');
+    const linkedProject = join(linkedDev, 'project');
+    mkdirSync(project, { recursive: true });
+    symlinkSync(realDev, linkedDev, 'dir');
+
+    const relPath = 'new/deep/file.ts';
+    const linkedFile = join(linkedProject, relPath);
+    const realFile = join(project, relPath);
+    assert.deepEqual(normalizeToolPath(project, linkedFile), { absPath: linkedFile, relPath });
+    assert.deepEqual(normalizeToolPath(linkedProject, realFile), { absPath: realFile, relPath });
+    assert.equal(normalizeToolPath(project, relative(project, linkedFile)).relPath, relPath);
+
+    const outside = join(linkedDev, 'project-other', 'file.ts');
+    assert.equal(normalizeToolPath(project, outside).relPath, relative(project, outside));
+  });
+
+  it('keeps the name of a file symlink reached through a directory alias', (t) => {
+    const root = mkdtempSync(join(realpathSync(tmpdir()), 'filechanges-'));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const project = join(root, 'disk', 'dev', 'project');
+    const shared = join(root, 'disk', 'dev', 'shared');
+    const alias = join(root, 'dev');
+    mkdirSync(project, { recursive: true });
+    mkdirSync(shared);
+    writeFileSync(join(shared, 'AGENTS.md'), 'Shared instructions\n');
+    symlinkSync('../shared/AGENTS.md', join(project, 'AGENTS.md'), 'file');
+    symlinkSync(join(root, 'disk', 'dev'), alias, 'dir');
+
+    const linkedFile = join(alias, 'project', 'AGENTS.md');
+    assert.deepEqual(normalizeToolPath(project, linkedFile), {
+      absPath: linkedFile,
+      relPath: 'AGENTS.md',
+    });
+  });
+
+  it('keeps a file symlink outside cwd relative to cwd when its target is inside', (t) => {
+    const root = mkdtempSync(join(realpathSync(tmpdir()), 'filechanges-'));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const project = join(root, 'project');
+    const outside = join(root, 'out.md');
+    mkdirSync(project);
+    writeFileSync(join(project, 'real.md'), 'In the project\n');
+    symlinkSync(join(project, 'real.md'), outside, 'file');
+
+    assert.deepEqual(normalizeToolPath(project, outside), {
+      absPath: outside,
+      relPath: relative(project, outside),
+    });
   });
 
   it("resolves cwd itself to '.'", () => {

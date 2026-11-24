@@ -247,6 +247,8 @@ export default function (pi: ExtensionAPI) {
         const data = entry.data as any;
         if (!data?.path) continue;
         const { absPath, relPath } = normalizeToolPath(ctx.cwd, data.path);
+        // Older sessions could record the same file under both its real path and a symlink.
+        if (baselines.has(relPath)) continue;
         baselines.set(relPath, {
           path: relPath,
           absPath,
