@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/jwu/pi-filechanges/compare/v1.3.1...v1.3.2) (2026-11-24)
+
+
+### Bug Fixes
+
+* **paths:** 识别经符号链接访问的 cwd 内文件 ([2be76d2](https://github.com/jwu/pi-filechanges/commit/2be76d22cff473cfcf5d292fdc1f0fd602412354))
+
 ## [1.3.1](https://github.com/jwu/pi-filechanges/compare/v1.3.0...v1.3.1) (2026-11-21)
 
 
