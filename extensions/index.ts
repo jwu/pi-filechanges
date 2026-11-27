@@ -4,11 +4,10 @@ import {
   isEditToolResult,
   isToolCallEventType,
   isWriteToolResult,
-  keyHint,
 } from '@earendil-works/pi-coding-agent';
 import { readFile } from 'node:fs/promises';
 
-import { TOGGLE_KEY_OFF, resolveToggleKey } from './config.js';
+import { TOGGLE_KEY_OFF, resolveConfig } from './config.js';
 import {
   normalizeToolPath,
   countDiffLines,
@@ -16,7 +15,6 @@ import {
   splitArgs,
   formatStatus,
   buildWidgetLines,
-  buildHiddenHintLine,
   type Baseline,
   type TrackedFile,
   type PendingSnapshot,
@@ -45,15 +43,13 @@ export default function (pi: ExtensionAPI) {
 
   // Widget is shown by default; `/filechanges` toggles it.
   let showWidget = true;
+  let expanded = false;
 
-  // Toggle shortcut, resolved once at factory scope from
-  // <agent dir>/extensions/pi-filechanges.json; rebinding needs /reload. "off"
-  // registers no shortcut and drops the key from the hidden hint.
-  const toggleKey = resolveToggleKey(getAgentDir());
+  // Read the widget settings once per extension load.
+  const { toggleKey, maxfiles } = resolveConfig(getAgentDir());
 
   function updateUi(ctx?: any) {
     if (!ctx?.hasUI) return;
-    ctx.ui.setStatus('filechanges', formatStatus(tracked, ctx.ui.theme));
     if (!showWidget) {
       // Keep a one-line hint in place of the widget so the collapse is
       // discoverable — but only when there is something to expand into.
@@ -61,10 +57,9 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.setWidget('filechanges', undefined);
         return;
       }
-      const hintKey = toggleKey === TOGGLE_KEY_OFF ? undefined : toggleKey;
       ctx.ui.setWidget('filechanges', (_tui: any, theme: any) => ({
         render: () => {
-          const line = buildHiddenHintLine(hintKey, theme);
+          const line = theme.fg('dim', 'filechanges hidden · /filechanges to show');
           const termWidth = _tui?.getWidth?.() ?? process.stdout.columns ?? 80;
           return [
             typeof _tui?.truncateToWidth === 'function'
@@ -76,18 +71,18 @@ export default function (pi: ExtensionAPI) {
       }));
       return;
     }
-    // Use a factory so render() reads the live tools-expanded state on every TUI redraw.
-    // When tools are expanded (ctrl+o), show all tracked files; otherwise cap at 8.
     ctx.ui.setWidget('filechanges', (_tui: any, theme: any) => ({
       render: () => {
-        const expanded = (ctx as any)?.ui?.getToolsExpanded?.() ?? false;
-        const maxLines = expanded ? 9999 : 8;
+        const maxLines = expanded ? tracked.size : maxfiles;
         const termWidth = _tui?.getWidth?.() ?? process.stdout.columns ?? 80;
         const lines = buildWidgetLines(tracked, theme, maxLines, termWidth) ?? [];
-        if (!expanded && tracked.size > maxLines) {
+        if (tracked.size > maxLines) {
           const rest = tracked.size - maxLines;
-          const hint = keyHint('app.tools.expand', 'to expand');
-          lines[lines.length - 1] = theme.fg('dim', `... (${rest} more files, ${hint})`);
+          const summary = formatStatus(tracked, theme);
+          const label = rest === 1 ? 'file' : 'files';
+          const hint = toggleKey === TOGGLE_KEY_OFF ? '' : `, ${toggleKey} to expand`;
+          const more = theme.fg('dim', `... (${rest} more ${label}${hint})`);
+          lines[lines.length - 1] = `${summary} ${more}`;
         }
         // Safety net: brute-force truncate any line that still exceeds terminal width
         for (let i = 0; i < lines.length; i++) {
@@ -219,12 +214,14 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  // Optional toggle shortcut. The key was resolved at factory scope above; the
-  // binding is skipped entirely when toggleKey is "off".
   if (toggleKey !== TOGGLE_KEY_OFF) {
     pi.registerShortcut(toggleKey as Parameters<ExtensionAPI['registerShortcut']>[0], {
-      description: 'Toggle the file changes widget',
-      handler: (ctx) => toggleWidget(ctx),
+      description: 'Expand or collapse the file changes list',
+      handler: (ctx) => {
+        if (!showWidget) return;
+        expanded = !expanded;
+        updateUi(ctx);
+      },
     });
   }
 

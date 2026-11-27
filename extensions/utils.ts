@@ -182,7 +182,7 @@ function compareAsciiLowercaseFirst(a: string, b: string): number {
 }
 
 /**
- * Build a short status string for the footer/status area.
+ * Build a short file-count summary for the widget.
  * Returns undefined when there are no tracked files.
  */
 export function formatStatus(
@@ -198,18 +198,11 @@ export function formatStatus(
     else edited++;
   }
 
-  const status = `Δ${edited}  +${created}`;
-  return theme ? theme.fg('muted', status) : status;
-}
-
-/**
- * Build the single-line hint shown in place of the widget while it is hidden,
- * so the collapsed state stays discoverable. `toggleKey` is the resolved
- * shortcut spec, or undefined when no shortcut is registered ("off").
- */
-export function buildHiddenHintLine(toggleKey?: string, theme?: ThemeLike): string {
-  const label = toggleKey ? `filechanges hidden · ${toggleKey} to expand` : 'filechanges hidden';
-  return theme ? theme.fg('dim', label) : label;
+  const editedCount = `Δ${edited}`;
+  const newCount = `+${created}`;
+  return theme
+    ? `${theme.fg('warning', editedCount)} ${theme.fg('success', newCount)}`
+    : `${editedCount} ${newCount}`;
 }
 
 /**

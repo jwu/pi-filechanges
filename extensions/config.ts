@@ -7,11 +7,10 @@ import { join } from 'node:path';
  *   <agent dir>/extensions/pi-filechanges.json
  *   e.g. ~/.pi/agent/extensions/pi-filechanges.json
  *
- * Currently only holds the widget toggle shortcut. A missing or malformed file
- * falls back to the defaults below; pi-filechanges never writes this file.
+ * A missing or malformed file falls back to the defaults below.
  */
 
-/** Key spec for the widget toggle shortcut, e.g. "alt+f" or "ctrl+shift+t". */
+/** Key spec for the file list expansion shortcut, e.g. "alt+f" or "ctrl+shift+t". */
 export type ToggleKeySpec = string;
 
 /** Default toggle key when `toggleKey` is missing/empty/blank/invalid. */
@@ -20,9 +19,13 @@ export const DEFAULT_TOGGLE_KEY: ToggleKeySpec = 'alt+f';
 /** Sentinel value for `toggleKey` that registers no shortcut at all. */
 export const TOGGLE_KEY_OFF: ToggleKeySpec = 'off';
 
+const DEFAULT_MAX_FILES = 8;
+
 export interface FileChangesConfig {
-  /** Key spec in pi keybinding form (`modifier+key`); "off" disables it. */
+  /** List expansion shortcut in Pi keybinding form. Use "off" to disable it. */
   toggleKey?: string;
+  /** Maximum file rows in the compact widget, from 0 to 10. */
+  maxfiles?: number;
 }
 
 /** Absolute path of the config file inside the given pi agent directory. */
@@ -101,7 +104,13 @@ export function normalizeToggleKey(raw: unknown): ToggleKeySpec {
   return isValidToggleKeySpec(value) ? value : DEFAULT_TOGGLE_KEY;
 }
 
-/** Resolve the toggle key from the config file in `agentDir`. */
-export function resolveToggleKey(agentDir: string): ToggleKeySpec {
-  return normalizeToggleKey(loadConfig(agentDir).toggleKey);
+export function resolveConfig(agentDir: string): Required<FileChangesConfig> {
+  const { toggleKey, maxfiles } = loadConfig(agentDir);
+  return {
+    toggleKey: normalizeToggleKey(toggleKey),
+    maxfiles:
+      typeof maxfiles === 'number' && Number.isInteger(maxfiles) && maxfiles >= 0 && maxfiles <= 10
+        ? maxfiles
+        : DEFAULT_MAX_FILES,
+  };
 }

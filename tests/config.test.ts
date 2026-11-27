@@ -11,7 +11,7 @@ import {
   isValidToggleKeySpec,
   loadConfig,
   normalizeToggleKey,
-  resolveToggleKey,
+  resolveConfig,
 } from '../extensions/config.ts';
 
 describe('isValidToggleKeySpec', () => {
@@ -104,13 +104,33 @@ describe('config file resolution', () => {
     withTempAgentDir((agentDir) => {
       mkdirSync(join(agentDir, 'extensions'), { recursive: true });
       writeFileSync(getConfigPath(agentDir), JSON.stringify({ toggleKey: 'ctrl+shift+t' }));
-      assert.equal(resolveToggleKey(agentDir), 'ctrl+shift+t');
+      assert.equal(resolveConfig(agentDir).toggleKey, 'ctrl+shift+t');
     });
   });
 
-  it('falls back to the default when toggleKey is absent', () => {
+  it('uses both defaults when the config is absent', () => {
     withTempAgentDir((agentDir) => {
-      assert.equal(resolveToggleKey(agentDir), DEFAULT_TOGGLE_KEY);
+      assert.deepEqual(resolveConfig(agentDir), { toggleKey: DEFAULT_TOGGLE_KEY, maxfiles: 8 });
+    });
+  });
+
+  it('accepts every integer from 0 through 10 for maxfiles', () => {
+    withTempAgentDir((agentDir) => {
+      mkdirSync(join(agentDir, 'extensions'));
+      for (let maxfiles = 0; maxfiles <= 10; maxfiles++) {
+        writeFileSync(getConfigPath(agentDir), JSON.stringify({ maxfiles }));
+        assert.equal(resolveConfig(agentDir).maxfiles, maxfiles);
+      }
+    });
+  });
+
+  it('uses the default for invalid maxfiles values without discarding toggleKey', () => {
+    withTempAgentDir((agentDir) => {
+      mkdirSync(join(agentDir, 'extensions'));
+      for (const maxfiles of [-1, 11, 1.5, '0', null, true, {}]) {
+        writeFileSync(getConfigPath(agentDir), JSON.stringify({ maxfiles, toggleKey: 'off' }));
+        assert.deepEqual(resolveConfig(agentDir), { toggleKey: TOGGLE_KEY_OFF, maxfiles: 8 });
+      }
     });
   });
 });

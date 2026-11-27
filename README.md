@@ -29,9 +29,11 @@ pi install npm:@johnnywu/pi-filechanges
 | `/filechanges` | Toggle the changes widget on/off (default: on) |
 | `/filechanges clear` | Clear the tracked changes log without modifying files |
 
-Pressing the toggle shortcut does the same as `/filechanges` without typing the command.
-While the widget is hidden and there are tracked files, a one-line hint stays in its
-place (`filechanges hidden · alt+f to expand`) so the collapsed state is discoverable.
+The filechanges shortcut (`alt+f` by default) switches between the compact and full
+file lists. Pi's tool-output shortcut (`ctrl+o` by default) controls tool output separately.
+When the number of tracked files exceeds `maxfiles`, the compact list's last line shows
+the total edited and new file counts alongside the filechanges shortcut. When the widget
+is hidden, use `/filechanges` to show it again.
 
 ## Configuration
 
@@ -39,16 +41,18 @@ Optional. Create `~/.pi/agent/extensions/pi-filechanges.json`:
 
 ```json
 {
-  "toggleKey": "alt+f"
+  "toggleKey": "alt+f",
+  "maxfiles": 8
 }
 ```
 
 | Setting | What it does | Default |
 |---------|--------------|---------|
-| `toggleKey` | Shortcut that shows/hides the changes widget, in Pi keybinding form (`alt+f`, `ctrl+shift+t`). Set `"off"` to register no shortcut. Needs `/reload` to rebind. | `"alt+f"` |
+| `toggleKey` | Shortcut that switches between the compact and full file lists, in Pi keybinding form (`alt+f`, `ctrl+shift+t`). Set `"off"` to disable the shortcut. | `"alt+f"` |
+| `maxfiles` | Maximum number of file rows in the compact list. Accepts integers from `0` to `10`. With `0`, the compact view shows only the summary row when changes are tracked. | `8` |
 
-A missing or malformed file falls back to the defaults. `pi-filechanges` only
-reads this file — it never writes one.
+Run `/reload` to apply changes. Missing or invalid settings fall back to their
+defaults. `pi-filechanges` only reads this file.
 
 > `alt+f` also drives `tui.editor.cursorWordRight` in Pi's built-in editor
 > keybindings. Set a different `toggleKey` if you want both.
