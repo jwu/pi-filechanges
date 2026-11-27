@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/jwu/pi-filechanges/compare/v1.3.2...v1.4.0) (2026-11-27)
+
+
+### Features
+
+* configure and independently expand the file changes list ([f58d06c](https://github.com/jwu/pi-filechanges/commit/f58d06cec6641f21bfd19de9ff9f737e72cc0a6c))
+
 ## [1.3.2](https://github.com/jwu/pi-filechanges/compare/v1.3.1...v1.3.2) (2026-11-24)
 
 
